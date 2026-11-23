@@ -4,7 +4,7 @@
 CALA_APT_UPDATED=0
 
 cala_require_root() {
-  ((EUID == 0)) || cala_die "run the installer as root, for example: sudo bash <(curl -sSL https://install.caloptreyx.com)"
+  ((EUID == 0)) || cala_die "run the installer as root: 'sudo -i' first, or: curl -sSL https://install.caloptreyx.com | sudo bash"
 }
 
 cala_pkg_install() {

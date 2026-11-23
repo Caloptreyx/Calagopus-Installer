@@ -108,14 +108,14 @@ cala_cleanup() {
   return 0
 }
 
-# Runs a command with its output in the log only. The description is shown and logged, the arguments are not
-# (they can hold secrets).
+# Runs a command with its output in the log only and no stdin (so it never eats the user's input). The
+# description is shown and logged, the arguments are not (they can hold secrets).
 cala_run() {
   local description="$1"
   shift
   cala_info "$description"
   cala_log "RUN  $description"
-  if ! "$@" >>"${CALA_LOG_FILE:-/dev/null}" 2>&1; then
+  if ! "$@" </dev/null >>"${CALA_LOG_FILE:-/dev/null}" 2>&1; then
     cala_fail "$description failed"
   fi
 }

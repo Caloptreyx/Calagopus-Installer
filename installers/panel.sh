@@ -266,10 +266,6 @@ cala_install_panel() {
   cala_write_state "$CALA_PANEL_DIR" "MODE=$mode" "DOMAIN=$CALA_DOMAIN" "APP_URL=$CALA_APP_URL" \
     "INSTALLER_VERSION=$CALA_INSTALLER_VERSION" "INSTALLED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-  if [[ "$heavy" == yes ]]; then
-    cala_extensions_stage "$CALA_PANEL_DIR" || true
-  fi
-
   cala_step "Starting Calagopus"
   cala_run "Pulling the images (a few minutes on a fresh server)" cala_compose "$CALA_PANEL_DIR" pull
   cala_run "Starting the containers" cala_compose "$CALA_PANEL_DIR" up -d
@@ -293,7 +289,10 @@ cala_install_panel() {
   fi
 
   if [[ "$heavy" == yes ]]; then
-    cala_step "Building the extensions"
+    # Only now: recreating the container (as exposing the panel does) would interrupt a running build.
+    cala_step "Installing the extensions"
+    cala_extensions_stage "$CALA_PANEL_DIR" || true
+    cala_run "Restarting the panel so it builds the extensions" cala_compose "$CALA_PANEL_DIR" restart web
     cala_extensions_wait_build "$CALA_PANEL_DIR"
   fi
 

@@ -13,7 +13,7 @@ CALA_INSTALLER_VERSION="0.1.0"
 CALA_INSTALLER_REPO="Caloptreyx/Calagopus-Installer"
 
 cala_self_dir() {
-  local source="${BASH_SOURCE[0]}"
+  local source="${BASH_SOURCE[0]:-}"
   [[ -f "$source" ]] || return 1
   (cd "$(dirname "$source")" && pwd)
 }
@@ -33,7 +33,7 @@ cala_bootstrap() {
   tmp="$(mktemp -d /tmp/calagopus-installer.XXXXXX)"
   trap 'rm -rf "$tmp"' EXIT
   if ! curl -fsSL --retry 3 "https://codeload.github.com/${CALA_INSTALLER_REPO}/tar.gz/${ref}" |
-    tar -xz -C "$tmp" --strip-components=1; then
+    tar -xz -C "$tmp" --strip-components=1 || [[ ! -f "$tmp/install.sh" ]]; then
     echo "Could not download the installer (${CALA_INSTALLER_REPO} at ${ref})." >&2
     exit 1
   fi
