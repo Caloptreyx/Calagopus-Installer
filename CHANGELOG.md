@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 (2026-11-23)
 
 - The one-liner exited with status 1 (and printed `tmp: unbound variable`) after the installer finished,
   whatever the installer's own status, and left its download in `/tmp`. It now passes the installer's exit

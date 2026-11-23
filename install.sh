@@ -11,7 +11,7 @@
 # runs the development branch instead.
 set -Eeuo pipefail
 
-CALA_INSTALLER_VERSION="0.1.0"
+CALA_INSTALLER_VERSION="0.1.1"
 CALA_INSTALLER_REPO="Caloptreyx/Calagopus-Installer"
 
 cala_self_dir() {
