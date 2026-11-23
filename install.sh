@@ -31,16 +31,16 @@ cala_bootstrap() {
     echo "  apt-get install -y curl tar    or    dnf install -y curl tar" >&2
     exit 1
   fi
-  local tmp
-  tmp="$(mktemp -d /tmp/calagopus-installer.XXXXXX)"
-  trap 'rm -rf "$tmp"' EXIT
+  # Global, not local: the EXIT trap runs after this function has returned.
+  CALA_BOOTSTRAP_TMP="$(mktemp -d /tmp/calagopus-installer.XXXXXX)"
+  trap 'rm -rf "$CALA_BOOTSTRAP_TMP"' EXIT
   if ! curl -fsSL --retry 3 "https://codeload.github.com/${CALA_INSTALLER_REPO}/tar.gz/${ref}" |
-    tar -xz -C "$tmp" --strip-components=1 || [[ ! -f "$tmp/install.sh" ]]; then
+    tar -xz -C "$CALA_BOOTSTRAP_TMP" --strip-components=1 || [[ ! -f "$CALA_BOOTSTRAP_TMP/install.sh" ]]; then
     echo "Could not download the installer (${CALA_INSTALLER_REPO} at ${ref})." >&2
     [[ -n "${CALA_INSTALLER_REF:-}" ]] || echo "To run the development branch instead: CALA_INSTALLER_REF=main" >&2
     exit 1
   fi
-  CALA_BOOTSTRAPPED=1 bash "$tmp/install.sh" "$@"
+  CALA_BOOTSTRAPPED=1 bash "$CALA_BOOTSTRAP_TMP/install.sh" "$@"
 }
 
 main() {
