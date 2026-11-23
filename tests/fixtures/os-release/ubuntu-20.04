@@ -1,0 +1,4 @@
+PRETTY_NAME="Ubuntu 20.04.6 LTS"
+VERSION_ID="20.04"
+ID=ubuntu
+ID_LIKE=debian

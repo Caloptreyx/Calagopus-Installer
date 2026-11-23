@@ -1,0 +1,221 @@
+# Lint and unit tests, OS detection in each supported distribution (dry run), and real installs on the runner:
+# All-in-One (install, update, uninstall), a Wings node, and an All-in-One with one Caloptreyx extension.
+name: Check
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly, so a change in the upstream compose files or a new extension release shows up without a push.
+    - cron: "17 6 * * 1"
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SHELLCHECK_VERSION: v0.11.0
+  SHFMT_VERSION: v3.12.0
+
+jobs:
+  lint:
+    name: Lint and unit tests
+    # A branch in this repo is already checked by its push; pull requests only add forks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install shellcheck and shfmt
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" |
+            tar -xJ -C /tmp
+          install -m 755 "/tmp/shellcheck-${SHELLCHECK_VERSION}/shellcheck" "$HOME/.local/bin/shellcheck"
+          curl -fsSL -o "$HOME/.local/bin/shfmt" "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64"
+          chmod +x "$HOME/.local/bin/shfmt"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: shellcheck
+        # install.sh and tests/run.sh are checked with everything they source; the sourced files on their own
+        # without SC2034, because their globals are used by the other files.
+        run: |
+          shellcheck install.sh tests/run.sh tests/upstream.sh tests/catalog.sh tests/ci/*.sh
+          shellcheck -e SC2034 lib/*.sh installers/*.sh ui/*.sh tests/test_*.sh
+
+      - name: shfmt
+        run: shfmt -d .
+
+      - name: Unit tests
+        run: bash tests/run.sh
+
+      - name: Upstream compose files still fit
+        run: bash tests/upstream.sh
+
+      - name: extensions.tsv matches the released extensions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tests/catalog.sh
+
+  distros:
+    name: Dry run on ${{ matrix.image }}
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - debian:12
+          - debian:13
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - ubuntu:26.04
+          - rockylinux/rockylinux:9
+          - almalinux:9
+          - almalinux:10
+    steps:
+      - uses: actions/checkout@v7
+
+      # OS detection and the prerequisite packages for real, then everything up to Docker without installing it.
+      - name: AIO and Wings dry runs
+        run: |
+          docker run --rm -v "$PWD:/src:ro" \
+            -e CALA_ADMIN_EMAIL=ci@example.com -e CALA_ADMIN_USERNAME=ci_admin -e CALA_ADMIN_PASSWORD=ci-password-123 \
+            -e CALA_FIREWALL=no -e CALA_EXTENSIONS=none \
+            "${{ matrix.image }}" bash -euc '
+              bash /src/install.sh aio --non-interactive --dry-run
+              for c in curl openssl dig jq unzip tar ss; do command -v "$c" >/dev/null || { echo "missing $c"; exit 1; }; done
+              bash /src/install.sh wings --non-interactive --dry-run
+              bash /src/install.sh panel --non-interactive --dry-run --domain example.com --ignore-dns yes
+              tail -n 5 /var/log/calagopus-installer.log
+            '
+
+  aio:
+    name: All-in-One install, update, uninstall
+    needs: lint
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    env:
+      CALA_ADMIN_EMAIL: ci@example.com
+      CALA_ADMIN_USERNAME: ci_admin
+      CALA_ADMIN_PASSWORD: ci-password-123
+      CALA_FIREWALL: "no"
+      CALA_EXTENSIONS: none
+      CALA_TIMEZONE: UTC
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install (non-interactive, no domain)
+        run: sudo -E bash install.sh aio --non-interactive
+
+      - name: Verify the install
+        run: sudo -E bash tests/ci/verify-panel.sh
+
+      - name: A second install is refused
+        run: |
+          if sudo -E bash install.sh aio --non-interactive; then
+            echo "the installer replaced an existing install"; exit 1
+          fi
+
+      - name: Update
+        run: |
+          sudo -E bash install.sh update --non-interactive
+          sudo ls -l /opt/calagopus-panel/backups/
+          sudo test -n "$(sudo find /opt/calagopus-panel/backups -name 'panel-*.backup' -size +1k)"
+          curl -fsS http://127.0.0.1:8000/api/settings | jq -e '.app.registration_enabled == false'
+
+      - name: Uninstall without confirmation is refused
+        run: |
+          if sudo -E bash install.sh uninstall --non-interactive; then
+            echo "uninstall ran without CALA_UNINSTALL_CONFIRM"; exit 1
+          fi
+          sudo test -f /opt/calagopus-panel/compose.yml
+
+      - name: Uninstall with data
+        run: |
+          sudo -E bash install.sh uninstall --non-interactive --uninstall-confirm yes --remove-data yes --remove-data-confirm DELETE
+          sudo test ! -e /opt/calagopus-panel
+          sudo test ! -e /var/lib/calagopus-wings
+          test -z "$(sudo docker ps -aq --filter label=com.docker.compose.project=calagopus-panel)"
+
+      - name: Installer log
+        if: always()
+        run: sudo tail -n 150 /var/log/calagopus-installer.log || true
+
+  wings:
+    name: Wings node install and uninstall
+    needs: lint
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 20
+    env:
+      CALA_FIREWALL: "no"
+      CALA_TIMEZONE: UTC
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install (waits for pairing)
+        run: sudo -E bash install.sh wings --non-interactive
+
+      - name: Verify Wings
+        run: |
+          sudo test "$(sudo stat -c %a /opt/calagopus-wings/compose.yml)" = 600
+          test -n "$(sudo docker ps -q --filter label=com.docker.compose.project=calagopus-wings --filter status=running)"
+          code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)"
+          echo "Wings answered HTTP $code"
+          test "$code" != 000
+          (cd /opt/calagopus-wings && sudo docker compose logs --no-color wings | tail -n 20)
+
+      - name: Uninstall with data
+        run: |
+          sudo -E bash install.sh uninstall --non-interactive --uninstall-confirm yes --remove-data yes --remove-data-confirm DELETE
+          sudo test ! -e /opt/calagopus-wings
+
+      - name: Installer log
+        if: always()
+        run: sudo tail -n 100 /var/log/calagopus-installer.log || true
+
+  extension:
+    name: All-in-One with a Caloptreyx extension
+    needs: lint
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 75
+    env:
+      CALA_ADMIN_EMAIL: ci@example.com
+      CALA_ADMIN_USERNAME: ci_admin
+      CALA_ADMIN_PASSWORD: ci-password-123
+      CALA_FIREWALL: "no"
+      CALA_TIMEZONE: UTC
+      CALA_EXTENSIONS: updater
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install with the Extension Updater (heavy image, compiles the extension)
+        run: sudo -E bash install.sh aio --non-interactive
+
+      - name: Verify the install and the extension build
+        run: |
+          sudo -E bash tests/ci/verify-panel.sh
+          sudo grep -q 'calagopus/panel:heavy-aio' /opt/calagopus-panel/compose.yml
+          sudo test -f /opt/calagopus-panel/build/extensions/dev_caloptreyx_updater.c7s.zip
+          sudo sh -c 'cat /opt/calagopus-panel/build/binaries/.state/builds/*/build.json' |
+            jq -se 'map(select(.state == "succeeded")) | any(.verified_extensions | any(.package_name == "dev.caloptreyx.updater"))'
+
+      - name: Adding the same extension again is a no-op
+        run: sudo -E bash install.sh extensions --non-interactive | tee /tmp/ext.out && grep -q 'Nothing to do' /tmp/ext.out
+
+      - name: Uninstall with data
+        run: |
+          sudo -E bash install.sh uninstall --non-interactive --uninstall-confirm yes --remove-data yes --remove-data-confirm DELETE
+          sudo test ! -e /opt/calagopus-panel
+
+      - name: Installer log
+        if: always()
+        run: sudo tail -n 150 /var/log/calagopus-installer.log || true

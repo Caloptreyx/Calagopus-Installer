@@ -1,0 +1,24 @@
+# Caloptreyx themes and extensions the installer offers. Tab-separated:
+# key	kind	repository (github.com/Caloptreyx/...)	archive identifier (<id>.c7s.zip)	name	description
+# The installer downloads the latest GitHub release of each pick. CI (catalog job) checks this list against the
+# organization's released extensions, so a new extension repository fails the check until it is listed here.
+mint	theme	Mint-Theme	dev_caloptreyx_mint	Mint Theme	Theme with a live editor, presets and a theme gallery
+zoron	theme	Zoron-Theme	dev_caloptreyx_zoron	Zoron Theme	Theme with an icon rail, a console workspace and Zoron Studio
+updater	extension	Extension-Updater	dev_caloptreyx_updater	Extension Updater	Check for and install updates to Caloptreyx extensions
+aiassistant	extension	AI-Assistant	dev_caloptreyx_aiassistant	AI Assistant	AI chat for users and admins with confirm-before-act panel actions
+calmcp	extension	Cal-MCP	dev_caloptreyx_calmcp	Cal MCP	MCP server so AI assistants can manage the panel through its API
+configeditor	extension	Config-Editor	dev_caloptreyx_configeditor	Config Editor	Edit a server's configuration files as forms
+eggchanger	extension	Egg-Changer	dev_caloptreyx_eggchanger	Egg Changer	Let users switch their server's egg
+gdrive	extension	google-drive	dev_caloptreyx_gdrive	Google Drive Backups	Back up servers to Google Drive
+mcplugins	extension	MC-Plugins-Installer	dev_caloptreyx_mcplugins	MC Plugins Installer	Install and manage Minecraft plugins from Modrinth
+modinstaller	extension	MC-Mod-Installer	dev_caloptreyx_modinstaller	MC Mod Installer	Install and manage Minecraft mods from Modrinth and CurseForge
+modpacks	extension	MC-Modpack-Installer	dev_caloptreyx_modpacks	Modpack Installer	Install Minecraft modpacks from Modrinth and CurseForge in one click
+playermanager	extension	Player-Manager	dev_caloptreyx_playermanager	Player Manager	Online players, whitelist, operators and bans for Minecraft
+reverseproxy	extension	Reverse-Proxy	dev_caloptreyx_reverseproxy	Reverse Proxy Manager	Domains in front of server ports via Nginx Proxy Manager or NPMplus
+serversplitter	extension	serversplitter	com_caloptreyx_serversplitter	Server Splitter	Split a server's resources into separate child servers
+subdomains	extension	Subdomain-Manager	dev_caloptreyx_subdomains	Subdomain Manager	Subdomains for game servers via Cloudflare or Bunny.net DNS
+templates	extension	Template-Installer	dev_caloptreyx_templates	Template Installer	Install admin-made server templates (setups, plugin bundles, configs)
+versionchanger	extension	MC-Version-Changer	dev_caloptreyx_versionchanger	Minecraft Version Changer	Switch a Minecraft server to any type, version and build
+vsmodinstaller	extension	VS-Mod-Installer	dev_caloptreyx_vsmodinstaller	Vintage Story Mod Installer	Browse and install Vintage Story mods
+webhooks	extension	Webhooks	dev_caloptreyx_webhooks	Webhooks	Send panel and server events to webhook URLs (Discord and more)
+worldmap	extension	World-Map	dev_caloptreyx_worldmap	World Map	2D Minecraft world map with player layers and chunk tools
