@@ -216,7 +216,7 @@ cala_configure_firewall() {
       done
       for port in "${game[@]}"; do
         spec="$(cala_firewall_port_spec "$port" ufw)"
-        cala_run "ufw: allowing $port/tcp+udp (game)" ufw allow "$spec/tcp"
+        cala_run "ufw: allowing $port/tcp (game)" ufw allow "$spec/tcp"
         cala_run "ufw: allowing $port/udp (game)" ufw allow "$spec/udp"
       done
       cala_run "Enabling ufw" ufw --force enable
