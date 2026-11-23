@@ -232,6 +232,11 @@ jobs:
           sudo test -f /opt/calagopus-panel/build/extensions/dev_caloptreyx_updater.c7s.zip
           sudo sh -c 'cat /opt/calagopus-panel/build/binaries/.state/builds/*/build.json' |
             jq -se 'map(select(.state == "succeeded")) | any(.verified_extensions | any(.package_name == "dev.caloptreyx.updater"))'
+          # The running panel has loaded it (Admin -> Extensions).
+          jq -n --arg u "$CALA_ADMIN_USERNAME" --arg p "$CALA_ADMIN_PASSWORD" '{user: $u, password: $p}' |
+            curl -fsS -c /tmp/jar -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:8000/api/auth/login >/dev/null
+          curl -fsS -b /tmp/jar http://127.0.0.1:8000/api/admin/extensions | tee /tmp/extensions.json |
+            jq -e '(.extensions | any(.package_name == "dev.caloptreyx.updater")) and (.failed | length == 0)'
 
       - name: Adding the same extension again is a no-op
         run: sudo -E bash install.sh extensions --non-interactive | tee /tmp/ext.out && grep -q 'Nothing to do' /tmp/ext.out
