@@ -63,6 +63,17 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: bash tests/catalog.sh
 
+      # The prompts, answered through a terminal (script(1) gives the installer a /dev/tty), up to the summary.
+      - name: Interactive dry run
+        run: |
+          printf '%s\n' 1 "" "" "" "" ci@example.com ci_admin ci-password-123 ci-password-123 n y "1 2 3" 2 y > /tmp/answers
+          (cat /tmp/answers; sleep 20) | sudo script -qefc "bash install.sh --dry-run" /tmp/typescript > /dev/null
+          sudo cat /tmp/typescript
+          grep -q 'Selected: zoron updater' /tmp/typescript
+          grep -q 'Dry run: stopping before Docker' /tmp/typescript
+          # (type-ahead input is echoed into the typescript, so only the log is checked for the password)
+          if sudo grep -q ci-password-123 /var/log/calagopus-installer.log; then echo "password in the log"; exit 1; fi
+
   distros:
     name: Dry run on ${{ matrix.image }}
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
@@ -98,7 +109,7 @@ jobs:
             '
 
   aio:
-    name: All-in-One install, update, uninstall
+    name: All-in-One install, update, uninstall; panel only
     needs: lint
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
@@ -145,6 +156,15 @@ jobs:
           sudo test ! -e /var/lib/calagopus-wings
           test -z "$(sudo docker ps -aq --filter label=com.docker.compose.project=calagopus-panel)"
 
+      - name: Panel only (standalone image) install, verify, uninstall
+        run: |
+          sudo -E bash install.sh panel --non-interactive
+          sudo grep -q 'calagopus/panel:latest' /opt/calagopus-panel/compose.yml
+          sudo test ! -e /opt/calagopus-panel/wings-config.yml
+          sudo -E bash tests/ci/verify-panel.sh
+          sudo -E bash install.sh uninstall --non-interactive --uninstall-confirm yes --remove-data yes --remove-data-confirm DELETE
+          sudo test ! -e /opt/calagopus-panel
+
       - name: Installer log
         if: always()
         run: sudo tail -n 150 /var/log/calagopus-installer.log || true
@@ -155,7 +175,9 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     env:
-      CALA_FIREWALL: "no"
+      # ufw on the runner: SSH, 8080, 2022 and the game ports.
+      CALA_FIREWALL: "yes"
+      CALA_GAME_PORTS: 25565,25570-25580
       CALA_TIMEZONE: UTC
     steps:
       - uses: actions/checkout@v7
@@ -171,6 +193,9 @@ jobs:
           echo "Wings answered HTTP $code"
           test "$code" != 000
           (cd /opt/calagopus-wings && sudo docker compose logs --no-color wings | tail -n 20)
+          sudo ufw status verbose | tee /tmp/ufw
+          grep -q 'Status: active' /tmp/ufw
+          grep -q '8080/tcp' /tmp/ufw && grep -q '2022/tcp' /tmp/ufw && grep -q '25570:25580/udp' /tmp/ufw
 
       - name: Uninstall with data
         run: |
