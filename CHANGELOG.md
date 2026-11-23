@@ -4,8 +4,9 @@
 
 First version.
 
-- One-command installer: `bash <(curl -sSL https://install.caloptreyx.com)`. The bootstrapper downloads the
-  installer as one tarball (`CALA_INSTALLER_REF`, default `main`).
+- One-command installer: `bash <(curl -sSL https://install.caloptreyx.com)`, which always serves the latest
+  published release (the `stable` branch, moved by `.github/workflows/stable.yml`). The bootstrapper downloads
+  the installer as one tarball at its own release tag (`CALA_INSTALLER_REF` overrides it, e.g. `main`).
 - Menu: All-in-One (default), Panel only, Wings node, Extensions, Update, Uninstall. Docker only.
 - Follows the official guides: Docker from get.docker.com, the official compose files, `openssl rand -hex 16`
   encryption key, panel bound to 127.0.0.1 until the administrator exists, `chmod 600` on compose.yml and

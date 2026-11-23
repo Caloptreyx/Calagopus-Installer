@@ -5,8 +5,10 @@
 #   bash <(curl -sSL https://install.caloptreyx.com)
 #
 # Run from a checkout, this script uses the files beside it. Run on its own (the one-liner), it downloads the
-# installer at CALA_INSTALLER_REF (default: main) as one tarball, so every file comes from the same commit,
-# and runs the install.sh inside it.
+# installer at CALA_INSTALLER_REF as one tarball, so every file comes from the same commit, and runs the
+# install.sh inside it. The default ref is this script's own release tag (v$CALA_INSTALLER_VERSION), so the
+# script install.caloptreyx.com serves (the latest release) runs that release's files; CALA_INSTALLER_REF=main
+# runs the development branch instead.
 set -Eeuo pipefail
 
 CALA_INSTALLER_VERSION="0.1.0"
@@ -19,7 +21,7 @@ cala_self_dir() {
 }
 
 cala_bootstrap() {
-  local ref="${CALA_INSTALLER_REF:-main}"
+  local ref="${CALA_INSTALLER_REF:-v${CALA_INSTALLER_VERSION}}"
   if [[ ! "$ref" =~ ^[A-Za-z0-9._/-]+$ ]]; then
     echo "CALA_INSTALLER_REF has an invalid value: $ref" >&2
     exit 1
@@ -35,6 +37,7 @@ cala_bootstrap() {
   if ! curl -fsSL --retry 3 "https://codeload.github.com/${CALA_INSTALLER_REPO}/tar.gz/${ref}" |
     tar -xz -C "$tmp" --strip-components=1 || [[ ! -f "$tmp/install.sh" ]]; then
     echo "Could not download the installer (${CALA_INSTALLER_REPO} at ${ref})." >&2
+    [[ -n "${CALA_INSTALLER_REF:-}" ]] || echo "To run the development branch instead: CALA_INSTALLER_REF=main" >&2
     exit 1
   fi
   CALA_BOOTSTRAPPED=1 bash "$tmp/install.sh" "$@"

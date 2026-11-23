@@ -1,0 +1,54 @@
+# Keeps the `stable` branch on the latest published release; https://install.caloptreyx.com serves install.sh
+# from `stable`, and that script downloads its own release tag (v$CALA_INSTALLER_VERSION).
+# GitHub's latest release is never a draft or a pre-release, so those never go live. Every release change
+# (publish, edit, unpublish, delete) re-syncs `stable` to /releases/latest, so it also moves back when the
+# latest release is withdrawn.
+name: Stable
+
+on:
+  release:
+    types: [released, edited, unpublished, deleted]
+  workflow_dispatch:
+
+concurrency:
+  group: stable
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  stable:
+    name: Move stable to the latest release
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Move stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! tag="$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest" | jq -er .tag_name)"; then
+            echo "::error::No published release; stable left unchanged."
+            exit 1
+          fi
+          git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
+          # The served script downloads v<its version>; a release whose tag differs would serve another release.
+          version="$(git show "${tag}:install.sh" | sed -n 's/^CALA_INSTALLER_VERSION="\(.*\)"$/\1/p')"
+          if [[ "$tag" != "v${version}" ]]; then
+            echo "::error::${tag}'s install.sh says version '${version}'; expected v${version} == ${tag}. stable left unchanged."
+            exit 1
+          fi
+          commit="$(git rev-parse "${tag}^{commit}")"
+          current="$(git ls-remote origin refs/heads/stable | cut -f1)"
+          if [[ "$commit" == "$current" ]]; then
+            echo "stable is already ${tag} (${commit})" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git push --force origin "${commit}:refs/heads/stable"
+          echo "stable: ${current:-none} -> ${tag} (${commit})" | tee -a "$GITHUB_STEP_SUMMARY"

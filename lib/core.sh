@@ -3,7 +3,6 @@
 
 CALA_DOCS_TROUBLESHOOTING="https://calagopus.com/docs/additional/troubleshooting"
 CALA_ONE_LINER="bash <(curl -sSL https://install.caloptreyx.com)"
-CALA_ONE_LINER_FALLBACK="bash <(curl -sSL https://raw.githubusercontent.com/Caloptreyx/Calagopus-Installer/main/install.sh)"
 
 # Every setting the installer reads. `--some-name value` on the command line sets CALA_SOME_NAME.
 CALA_SETTINGS=(
@@ -238,7 +237,7 @@ Settings (environment variable, or the option without the CALA_ prefix):
   CALA_SKIP_OS_CHECK      yes = run on an unsupported OS
   CALA_SKIP_REQUIREMENTS  yes = run below the minimum RAM/disk
   CALA_PANEL_TIMEOUT      seconds to wait for the panel to answer (default 900)
-  CALA_INSTALLER_REF      installer branch or tag the one-liner downloads (default main)
+  CALA_INSTALLER_REF      installer branch or tag the one-liner downloads (default: its release tag)
   CALA_LOG_FILE           log file (default /var/log/calagopus-installer.log)
 EOF
 }

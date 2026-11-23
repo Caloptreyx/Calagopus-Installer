@@ -17,15 +17,33 @@ bash <(curl -sSL https://install.caloptreyx.com)
 
 Run it as root: `sudo -i` first. (`sudo bash <(curl ...)` does not work, because sudo closes the descriptor
 `<(...)` uses; `curl -sSL https://install.caloptreyx.com | sudo bash` does, with options after `bash -s --`.)
-If the short URL is unreachable, use GitHub directly:
+If the short URL is unreachable, use GitHub directly (the `stable` branch is the latest release):
 
 ```bash
-bash <(curl -sSL https://raw.githubusercontent.com/Caloptreyx/Calagopus-Installer/main/install.sh)
+bash <(curl -sSL https://raw.githubusercontent.com/Caloptreyx/Calagopus-Installer/stable/install.sh)
 ```
 
-The script downloads the installer from this repository as one tarball (branch `main`, or the tag in
-`CALA_INSTALLER_REF`, e.g. `CALA_INSTALLER_REF=v0.1.0`), so every file comes from the same commit. Everything
-it does is logged to `/var/log/calagopus-installer.log` (passwords are never written there).
+The script downloads the installer from this repository as one tarball, at its own release tag
+(`v<version>`), so every file comes from the same release. Everything it does is logged to
+`/var/log/calagopus-installer.log` (passwords are never written there).
+
+### Releases and what the short URL serves
+
+`https://install.caloptreyx.com` always serves the **latest published release**, never `main`:
+
+- The `stable` branch points at the latest GitHub release. `.github/workflows/stable.yml` moves it whenever a
+  release is published, edited, unpublished or deleted, to whatever `/releases/latest` is then. Drafts and
+  pre-releases are never "latest", so they never go live. The workflow refuses a release whose tag is not
+  `v` + the `CALA_INSTALLER_VERSION` in its `install.sh`.
+- Caddy on the Caloptreyx VPS proxies `install.caloptreyx.com/<path>` to
+  `raw.githubusercontent.com/Caloptreyx/Calagopus-Installer/stable/<path>` (`/` is `install.sh`), with no
+  redirect, so `curl -s` without `-L` works too. GitHub's raw cache can lag a new release by up to 5 minutes.
+- The served `install.sh` downloads the tarball of `v$CALA_INSTALLER_VERSION`, its own release.
+- To try another branch or tag: `CALA_INSTALLER_REF=main bash <(curl -sSL https://install.caloptreyx.com)`.
+
+To release: set `CALA_INSTALLER_VERSION` in `install.sh` and date the CHANGELOG entry on `main`, wait for a
+green check, then `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z` and
+`gh release create vX.Y.Z --title vX.Y.Z --notes-file <notes>`. No Caddy change is needed.
 
 ## Menu
 
@@ -145,7 +163,7 @@ curl -sSL https://install.caloptreyx.com | sudo CALA_ADMIN_EMAIL=me@example.com 
 | `CALA_REMOVE_DATA`, `CALA_REMOVE_DATA_CONFIRM` | `yes` and `DELETE` to delete all data |
 | `CALA_SKIP_OS_CHECK`, `CALA_SKIP_REQUIREMENTS` | `yes` = run on an unsupported OS / below the minimum |
 | `CALA_PANEL_TIMEOUT` | Seconds to wait for the panel to start (900) |
-| `CALA_INSTALLER_REF` | Branch or tag of this repository the one-liner downloads (`main`) |
+| `CALA_INSTALLER_REF` | Branch or tag of this repository the one-liner downloads (default: the script's release tag, `v<version>`) |
 | `CALA_LOG_FILE` | Log file (`/var/log/calagopus-installer.log`) |
 | `--dry-run` | Detect the system and install the prerequisites, then stop before Docker |
 
